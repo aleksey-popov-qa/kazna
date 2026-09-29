@@ -1,0 +1,966 @@
+<title>Казна</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: кассовая книга — узкая колонка разделов слева, широкий рабочий лист справа; суммы набраны моноширинным, как в бухгалтерской ведомости */
+:root{
+  --bg:#edf1ef; --surface:#ffffff; --surface-2:#f4f7f5; --ink:#14221d; --muted:#5a6963; --line:#d7dfdb; --line-strong:#b7c4be;
+  --accent:#1d5b77; --accent-ink:#ffffff; --accent-soft:#e0ecf1;
+  --in:#1a7646; --in-soft:#e0f1e7; --out:#b0392a; --out-soft:#f7e3df; --plan:#946000; --plan-soft:#f6ebd3;
+  --scrim:rgba(8,18,14,.5); --shadow:0 1px 2px rgba(20,34,29,.06),0 10px 30px rgba(20,34,29,.10);
+  --f-display:"Unbounded","Onest",system-ui,sans-serif;
+  --f-body:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-num:"JetBrains Mono",ui-monospace,"SF Mono",Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1513; --surface:#151e1b; --surface-2:#1b2622; --ink:#e2eae7; --muted:#95a49e; --line:#26332e; --line-strong:#3a4a44;
+  --accent:#62b2d4; --accent-ink:#0b1a20; --accent-soft:#17303a;
+  --in:#4fc38a; --in-soft:#173226; --out:#ef7b6b; --out-soft:#3a1d19; --plan:#e0aa45; --plan-soft:#352812;
+  --scrim:rgba(0,0,0,.6); --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35); color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0e1513; --surface:#151e1b; --surface-2:#1b2622; --ink:#e2eae7; --muted:#95a49e; --line:#26332e; --line-strong:#3a4a44;
+  --accent:#62b2d4; --accent-ink:#0b1a20; --accent-soft:#17303a;
+  --in:#4fc38a; --in-soft:#173226; --out:#ef7b6b; --out-soft:#3a1d19; --plan:#e0aa45; --plan-soft:#352812;
+  --scrim:rgba(0,0,0,.6); --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35); color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{margin:0;text-wrap:balance}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num,.amt{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;height:100vh;display:flex;flex-direction:column;gap:20px;padding:22px 14px;border-right:1px solid var(--line);background:var(--surface)}
+.brand{padding:0 8px}
+.brand b{display:block;font-family:var(--f-display);font-weight:600;font-size:22px;letter-spacing:.02em}
+.brand span{font-size:12px;color:var(--muted)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;padding:9px 10px;border:0;border-radius:8px;background:none;cursor:pointer;text-align:left;color:var(--muted);font-weight:500}
+.nav button:hover{background:var(--surface-2);color:var(--ink)}
+.nav button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.side .btn.primary{justify-content:center}
+.sync{margin-top:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;padding:0 8px}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--line-strong)}
+.sync.ok i{background:var(--in)} .sync.bad i{background:var(--out)}
+
+main{padding-block:26px 80px;padding-inline:32px;max-width:1320px;width:100%;min-width:0}
+.vh{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.vh h1{font-size:24px;font-weight:600}
+.vh .sub{color:var(--muted);font-size:13px;margin-top:2px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);cursor:pointer;font-weight:500;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.in{color:var(--in)} .btn.out{color:var(--out)}
+.btn.small{padding:4px 10px;font-size:13px}
+.btn.danger{color:var(--out)}
+.btn.link{border:0;background:none;padding:4px 6px;color:var(--accent)}
+.iconbtn{width:34px;height:34px;display:inline-grid;place-items:center;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);cursor:pointer;font-size:16px}
+.iconbtn:hover{border-color:var(--accent)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.panel h2{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.panel h2 small{font-weight:400;color:var(--muted);font-size:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.tile .lbl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tile .val{font-family:var(--f-num);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.lead .val{font-family:var(--f-display);font-weight:600;font-size:24px}
+.tile .note{font-size:12px;color:var(--muted)}
+.dash{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:14px;align-items:start}
+.stack{display:grid;gap:14px;min-width:0}
+
+.alert{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border-radius:var(--r);padding:12px 16px;margin-bottom:14px;font-size:14px}
+.alert.bad{background:var(--out-soft);color:var(--out)}
+.alert.info{background:var(--plan-soft);color:var(--plan)}
+.alert b{font-weight:600}
+
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto}
+.c-grid{stroke:var(--line);stroke-width:1}
+.c-zero{stroke:var(--out);stroke-width:1;stroke-dasharray:3 3}
+.c-lbl{fill:var(--muted);font-size:11px;font-family:var(--f-body)}
+.c-area{fill:var(--accent);fill-opacity:.12}
+.c-fact{fill:none;stroke:var(--accent);stroke-width:2}
+.c-plan{fill:none;stroke:var(--plan);stroke-width:2;stroke-dasharray:5 4}
+.c-today{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 3}
+.c-dot{fill:var(--surface);stroke:var(--accent);stroke-width:2}
+.c-hl{stroke:var(--line-strong);stroke-width:1}
+.tip{position:absolute;top:4px;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap;transform:translateX(-50%)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid var(--accent);vertical-align:middle;margin-right:6px}
+.legend i.p{border-top:2px dashed var(--plan)}
+.legend i.bi{height:10px;width:10px;border:0;border-radius:2px;background:var(--in)}
+.legend i.bo{height:10px;width:10px;border:0;border-radius:2px;background:var(--out)}
+
+.list{display:flex;flex-direction:column}
+.li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);min-width:0}
+.li:last-child{border-bottom:0}
+.li .t{min-width:0}
+.li .t b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .t span{font-size:12px;color:var(--muted)}
+.li.total{font-weight:600;border-top:1px solid var(--line-strong);border-bottom:0}
+.bars .bar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;margin-top:5px}
+.bars .bar i{display:block;height:100%;background:var(--out);border-radius:3px}
+.mbars{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-items:end;height:150px;padding-top:6px}
+.mb{display:flex;flex-direction:column;align-items:center;gap:6px;height:100%}
+.mb-cols{flex:1;display:flex;align-items:flex-end;gap:3px;width:100%;justify-content:center}
+.mb-cols i{width:40%;max-width:22px;border-radius:3px 3px 0 0;min-height:1px}
+.mb-cols .b-in{background:var(--in)} .mb-cols .b-out{background:var(--out)}
+.mb span{font-size:11px;color:var(--muted)}
+
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;letter-spacing:.02em;white-space:nowrap;vertical-align:1px}
+.pill.plan{background:var(--plan-soft);color:var(--plan)}
+.pill.late{background:var(--out-soft);color:var(--out)}
+.pill.soft{background:var(--surface-2);color:var(--muted)}
+.pill.inb{background:var(--in-soft);color:var(--in)}
+.pill.outb{background:var(--out-soft);color:var(--out)}
+.amt{white-space:nowrap;text-align:right}
+.amt.in{color:var(--in)} .amt.out{color:var(--out)} .amt.move{color:var(--muted)}
+.neg{color:var(--out)} .muted{color:var(--muted)} .zero{color:var(--line-strong)}
+
+.bar-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.month-nav{display:inline-flex;align-items:center;gap:6px}
+.month-nav b{min-width:128px;text-align:center;font-weight:600}
+.chips{display:inline-flex;flex-wrap:wrap;gap:4px}
+.chip{padding:5px 11px;border-radius:99px;border:1px solid var(--line-strong);background:var(--surface);cursor:pointer;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+select,input[type=text],input[type=search],input[type=date],input[type=month],input:not([type]),textarea{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);min-width:0}
+textarea{resize:vertical}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:14px;cursor:pointer}
+.chk input{width:16px;height:16px;accent-color:var(--accent)}
+
+.sums{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:14px;margin-bottom:10px;color:var(--muted)}
+.sums b{font-family:var(--f-num);font-weight:500}
+.day-h{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);padding:14px 4px 6px}
+.day-h b{color:var(--ink);font-weight:600}
+.og{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+.op{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.7fr) minmax(0,1fr) minmax(0,.8fr) minmax(110px,auto);gap:12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:0;border-bottom:1px solid var(--line);padding:10px 14px;cursor:pointer;font-size:14px}
+.op:last-child{border-bottom:0}
+.op:hover{background:var(--surface-2)}
+.op>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op .c{font-weight:500}
+.op .d,.op .a,.op .p{color:var(--muted);font-size:13px}
+.empty{padding:36px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line-strong);border-radius:var(--r)}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+
+.cal-wrap{overflow-x:auto;border-radius:var(--r)}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(86px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;min-width:620px}
+.cal .wd{background:var(--surface-2);font-size:11px;color:var(--muted);padding:6px 8px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.cal .blank{background:var(--surface-2)}
+.cal .day{background:var(--surface);min-height:96px;padding:6px 8px;display:flex;flex-direction:column;gap:1px;text-align:left;border:0;cursor:pointer;font-size:12px;min-width:0}
+.cal .day:hover{background:var(--surface-2)}
+.cal .day .n{font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.cal .day.today .n span{background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:0 6px}
+.cal .day .n i{width:7px;height:7px;border-radius:50%;background:var(--plan)}
+.cal .day .fl{font-family:var(--f-num)}
+.cal .day .fl.in{color:var(--in)} .cal .day .fl.out{color:var(--out)}
+.cal .day .bal{margin-top:auto;font-family:var(--f-num);color:var(--muted);padding-top:4px}
+.cal .day.neg{background:var(--out-soft)}
+.cal .day.neg .bal{color:var(--out);font-weight:600}
+.cal .day.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.cal .day.past .bal{opacity:.8}
+
+.tabs{display:inline-flex;gap:2px;background:var(--surface-2);border:1px solid var(--line);padding:3px;border-radius:9px}
+.tabs button{border:0;background:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-weight:500;color:var(--muted);font-size:14px}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table.rep{border-collapse:collapse;min-width:100%;font-size:13px}
+.rep th,.rep td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rep th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;text-align:right;background:var(--surface)}
+.rep td{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.rep th:first-child,.rep td:first-child{position:sticky;left:0;text-align:left;background:var(--surface);font-family:var(--f-body);min-width:210px;z-index:1}
+.rep .cur{background:var(--accent-soft)}
+.rep tr.sec td{background:var(--surface-2);font-weight:600;font-family:var(--f-body);padding-top:10px}
+.rep tr.sub td{font-weight:600}
+.rep tr.cat td:first-child{padding-left:26px;color:var(--muted)}
+.rep tr.tot td{font-weight:700;border-top:2px solid var(--line-strong)}
+.rep tr.bal td{color:var(--muted);font-weight:500}
+.rep tr:last-child td{border-bottom:0}
+.rep td.tc{border-left:1px solid var(--line)}
+.mbar{display:inline-block;width:64px;height:6px;border-radius:3px;background:var(--surface-2);vertical-align:middle;margin-left:8px;overflow:hidden}
+.mbar i{display:block;height:100%;background:var(--in)}
+.foot-note{font-size:13px;color:var(--muted);margin-top:10px;max-width:70ch}
+
+.dict{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start}
+.di{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.di:last-child{border-bottom:0}
+.di .t{min-width:0}
+.di .t b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.di .t span{font-size:12px;color:var(--muted)}
+.di.arch{opacity:.55}
+
+.onb{max-width:620px;margin:6vh auto 0;display:grid;gap:14px}
+.onb h1{font-family:var(--f-display);font-weight:600;font-size:26px}
+.onb p{color:var(--muted);margin:0;max-width:60ch}
+.onb ul{margin:0;padding-left:18px;color:var(--muted)}
+
+.scrim{position:fixed;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px;overflow-y:auto;z-index:50}
+.modal{background:var(--surface);border-radius:14px;width:min(580px,100%);box-shadow:var(--shadow);padding:20px 22px;display:grid;gap:14px}
+.modal.wide{width:min(820px,100%)}
+.m-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.m-head h2{font-size:18px;font-weight:600}
+.x{border:0;background:none;font-size:24px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px;border-radius:6px}
+.mform{display:grid;gap:14px}
+.field{display:grid;gap:5px;min-width:0}
+.field label,.field .lbl{font-size:13px;font-weight:500}
+.hint{font-weight:400;color:var(--muted);font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg label{position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.seg span{display:block;padding:7px 14px;font-size:14px;font-weight:500;color:var(--muted)}
+.seg label+label span{border-left:1px solid var(--line-strong)}
+.seg input:checked+span{background:var(--ink);color:var(--bg)}
+.seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-3px}
+.seg-kind .k-in input:checked+span{background:var(--in);color:var(--surface)}
+.seg-kind .k-out input:checked+span{background:var(--out);color:var(--surface)}
+.seg-kind{justify-self:start}
+.mform[data-kind="move"] .no-move{display:none}
+.mform:not([data-kind="move"]) .only-move{display:none}
+.mform:not([data-st="plan"]) .only-plan{display:none}
+.form-err{color:var(--out);font-size:13px;margin:0;min-height:0}
+.form-err:empty{display:none}
+.m-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.m-actions{display:flex;gap:8px;margin-left:auto}
+.confirm{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px}
+.imp-prev{max-height:260px}
+.fmt{font-family:var(--f-num);font-size:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;white-space:pre}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;font-size:14px;z-index:80;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.fab{display:none}
+.ro .w{display:none !important}
+
+@media (max-width:1040px){.dash{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:sticky;height:auto;flex-direction:row;align-items:center;gap:12px;padding:10px 16px;border-right:0;border-bottom:1px solid var(--line);z-index:20;overflow-x:auto}
+  .brand span,.side .btn.primary,.sync{display:none}
+  .brand b{font-size:18px}
+  .nav{flex-direction:row}
+  .nav button{padding:7px 9px;white-space:nowrap}
+  .nav button .ico{display:none}
+  main{padding-inline:16px;padding-block:18px 96px}
+  .fab{display:grid;place-items:center;position:fixed;right:16px;bottom:calc(18px + env(safe-area-inset-bottom,0px));width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);border:0;font-size:28px;box-shadow:var(--shadow);z-index:30;cursor:pointer}
+  .op{grid-template-columns:minmax(0,1fr) auto;gap:2px 10px}
+  .op .d,.op .a,.op .p{grid-column:1/-1;white-space:normal}
+  .op .amt{grid-row:1;grid-column:2}
+  .grid2{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+
+<div class="app" id="app">
+  <aside class="side">
+    <div class="brand"><b>Казна</b><span>деньги бизнеса в одном месте</span></div>
+    <nav class="nav" id="nav" aria-label="Разделы">
+      <button data-act="nav" data-view="dash"><svg class="ico" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>Сводка</button>
+      <button data-act="nav" data-view="ops"><svg class="ico" viewBox="0 0 20 20"><path d="M4 5h12M4 10h12M4 15h8"/></svg>Операции</button>
+      <button data-act="nav" data-view="cal"><svg class="ico" viewBox="0 0 20 20"><rect x="3" y="4.5" width="14" height="12" rx="2"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4"/></svg>Платёжный календарь</button>
+      <button data-act="nav" data-view="rep"><svg class="ico" viewBox="0 0 20 20"><path d="M4 16V9M10 16V4M16 16v-5"/></svg>Отчёты</button>
+      <button data-act="nav" data-view="dict"><svg class="ico" viewBox="0 0 20 20"><path d="M5 3.5h9.5v13H6.5A1.5 1.5 0 0 1 5 15V3.5zM5 15a1.5 1.5 0 0 1 1.5-1.5h8"/></svg>Справочники</button>
+    </nav>
+    <button class="btn primary w" data-act="new-op">+ Новая операция</button>
+    <div class="sync" id="sync"><i></i><span>Подключение…</span></div>
+  </aside>
+  <main id="main"></main>
+</div>
+<button class="fab w" data-act="new-op" aria-label="Новая операция">+</button>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- базовые утилиты ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2 = n => Math.round(n * 100) / 100;
+const nf = new Intl.NumberFormat('ru-RU', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+const nf0 = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 0});
+const money = (n, sign = false) => { const v = r2(n); return (v < 0 ? '−' : (sign && v > 0 ? '+' : '')) + nf.format(Math.abs(v)) + ' ₽'; };
+const compact = n => { const a = Math.abs(n), s = n < 0 ? '−' : ''; if (a >= 1e6) return s + (a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace('.', ',') + ' млн'; if (a >= 1e3) return s + Math.round(a / 1e3) + ' тыс'; return s + Math.round(a); };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const TODAY = iso(new Date());
+const THIS_YM = TODAY.slice(0, 7);
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); };
+const addMonths = (ym, n) => { let [y, m] = ym.split('-').map(Number); m += n; y += Math.floor((m - 1) / 12); m = ((m - 1) % 12 + 12) % 12 + 1; return `${y}-${String(m).padStart(2, '0')}`; };
+const daysIn = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+const addMonthsDate = (s, n) => { const ym = addMonths(s.slice(0, 7), n); const d = Math.min(+s.slice(8), daysIn(ym)); return `${ym}-${String(d).padStart(2, '0')}`; };
+const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MONTHS_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONTHS_SHORT = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const MONTHS_PREP = ['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
+const WD = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+const ymLabel = ym => MONTHS[+ym.slice(5) - 1] + ' ' + ym.slice(0, 4);
+const dLabel = s => { const [y, m, d] = s.split('-'); return `${+d} ${MONTHS_GEN[+m - 1]}${y !== TODAY.slice(0, 4) ? ' ' + y : ''}`; };
+const dayHead = s => { const wd = WD[new Date(s + 'T00:00:00').getDay()]; if (s === TODAY) return 'Сегодня, ' + wd; if (s === addDays(TODAY, -1)) return 'Вчера, ' + wd; if (s === addDays(TODAY, 1)) return 'Завтра, ' + wd; return dLabel(s) + ', ' + wd; };
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const parseAmount = s => { const v = Number(String(s ?? '').replace(/[\s ₽]/g, '').replace('−', '-').replace(',', '.')); return Number.isFinite(v) ? v : NaN; };
+const parseDate = s => { s = String(s || '').trim(); let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; m = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})$/); if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; return `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; } return null; };
+
+const TYPES = {bank: 'Расчётный счёт', cash: 'Касса', card: 'Карта', wallet: 'Электронный кошелёк', other: 'Другое'};
+const FLOWS = {op: 'Операционная', inv: 'Инвестиционная', fin: 'Финансовая'};
+const KINDS = {in: 'Поступление', out: 'Выплата', move: 'Перевод'};
+const STARTER = [
+  ['c01','Выручка от продаж','in','op',true], ['c02','Прочие поступления','in','op',true],
+  ['c03','Закупка и себестоимость','out','op',true], ['c04','Зарплата','out','op',true], ['c05','Аренда','out','op',true],
+  ['c06','Маркетинг и реклама','out','op',true], ['c07','Налоги и взносы','out','op',true], ['c08','Банковские комиссии','out','op',true],
+  ['c09','Связь и сервисы','out','op',true], ['c10','Прочие расходы','out','op',true],
+  ['c11','Продажа имущества','in','inv',false], ['c12','Покупка оборудования','out','inv',false],
+  ['c13','Получение кредита','in','fin',false], ['c14','Погашение кредита','out','fin',false], ['c15','Проценты по кредитам','out','fin',true],
+  ['c16','Вложения собственника','in','fin',false], ['c17','Вывод собственнику','out','fin',false]
+];
+
+/* ---------- состояние ---------- */
+const COLS = {acc: 'accounts', cat: 'categories', prj: 'projects', pty: 'parties', ops: 'ops'};
+const S = {db: null, dl: null, status: 'connecting', err: '', loaded: new Set(), acc: {}, cat: {}, prj: {}, pty: {}, ops: {}, list: [], canWrite: true};
+const UI_KEY = 'kazna.ui.v1';
+const UI = Object.assign({view: 'dash', opsMonth: THIS_YM, opsAll: false, kind: 'all', status: 'all', facc: '', fcat: '', fprj: '', q: '',
+  calMonth: THIS_YM, calDay: TODAY, repYear: +TODAY.slice(0, 4), repTab: 'cf', repPlan: false, dictTab: 'acc'}, (() => { try { return JSON.parse(localStorage.getItem(UI_KEY)) || {}; } catch { return {}; } })());
+const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch {} };
+
+const main = $('#main'), modalRoot = $('#modal-root');
+
+/* ---------- запись в базу ---------- */
+function writeFail(e) {
+  const c = e && e.code;
+  if (c === 'invalid_argument') { toast('Изменение не сохранилось: нет прав на запись или неверные данные.'); }
+  else if (c === 'quota_exceeded') toast('База заполнена. Удалите старые операции или примеры, чтобы добавить новые.');
+  else toast('Не сохранилось (' + (c || 'ошибка сети') + '). Попробуйте ещё раз.');
+}
+async function put(k, id, data) { if (!S.db) return false; try { await S.db.collection(COLS[k]).doc(id).set(data); return true; } catch (e) { writeFail(e); return false; } }
+async function patch(k, id, data) { if (!S.db) return false; try { await S.db.collection(COLS[k]).doc(id).update(data); return true; } catch (e) { writeFail(e); return false; } }
+async function del(k, id) { if (!S.db) return false; try { await S.db.collection(COLS[k]).doc(id).delete(); return true; } catch (e) { writeFail(e); return false; } }
+
+/* ---------- расчёты ---------- */
+const effects = o => o.kind === 'in' ? [[o.account, +o.amount]] : o.kind === 'out' ? [[o.account, -o.amount]] : [[o.account, -o.amount], [o.to, +o.amount]];
+function balances(date, plan) {
+  const m = {}; for (const [id, a] of Object.entries(S.acc)) m[id] = +a.opening || 0;
+  for (const o of S.list) { if (o.date > date || (o.status === 'plan' && !plan)) continue; for (const [aid, d] of effects(o)) if (aid in m) m[aid] += d; }
+  return m;
+}
+const sum = m => r2(Object.values(m).reduce((s, v) => s + v, 0));
+function deltaMap(plan) {
+  const dm = new Map();
+  for (const o of S.list) { if (o.status === 'plan' && !plan) continue; let d = 0; for (const [aid, v] of effects(o)) if (S.acc[aid]) d += v; if (d) dm.set(o.date, (dm.get(o.date) || 0) + d); }
+  return dm;
+}
+function series(from, to, plan) {
+  let v = sum(balances(addDays(from, -1), plan)); const dm = deltaMap(plan); const out = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) { v += dm.get(d) || 0; out.push({d, v: r2(v)}); }
+  return out;
+}
+const accrualMonth = o => o.accrual || o.date.slice(0, 7);
+const catName = id => (S.cat[id] && S.cat[id].name) || 'Без статьи';
+const accName = id => (S.acc[id] && S.acc[id].name) || 'Счёт удалён';
+const activeSorted = (map, keep) => Object.entries(map).filter(([id, x]) => !x.archived || id === keep).sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0) || a[1].name.localeCompare(b[1].name, 'ru'));
+const findByName = (map, name) => { const n = name.trim().toLowerCase(); for (const [id, x] of Object.entries(map)) if ((x.name || '').trim().toLowerCase() === n) return id; return null; };
+const usage = id => S.list.filter(o => o.account === id || o.to === id || o.category === id || o.project === id || o.party === id).length;
+const hasDemo = () => ['ops', 'prj', 'pty', 'acc', 'cat'].some(k => Object.values(S[k]).some(x => x.demo));
+
+/* ---------- отрисовка ---------- */
+let raf = 0;
+const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); };
+function render() {
+  const ae = document.activeElement; const fid = ae && ae.id && main.contains(ae) ? ae.id : null;
+  let sel = null; try { if (fid && ae.selectionStart != null) sel = [ae.selectionStart, ae.selectionEnd]; } catch {}
+  document.body.classList.toggle('ro', !S.canWrite);
+  for (const b of document.querySelectorAll('#nav button')) b.toggleAttribute('aria-current', b.dataset.view === UI.view), b.dataset.view === UI.view && b.setAttribute('aria-current', 'page');
+  const sy = $('#sync'); sy.className = 'sync ' + (S.status === 'ready' ? 'ok' : S.status === 'connecting' ? '' : 'bad');
+  sy.lastElementChild.textContent = S.status === 'ready' ? (S.canWrite ? (S.mode === 'server' ? 'Сохраняется на сервере' : 'Сохраняется в облаке') : 'Только просмотр') : S.status === 'connecting' ? 'Подключение…' : 'Нет связи с базой';
+  main.innerHTML = view();
+  if (UI.view === 'dash') drawChart();
+  if (fid) { const el = document.getElementById(fid); if (el) { el.focus(); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch {} } }
+}
+function view() {
+  if (S.status === 'connecting') return `<div class="onb"><h1>Казна</h1><p>Открываю книгу учёта…</p></div>`;
+  if (S.status === 'nodb') return `<div class="onb"><h1>Казна</h1><p>Операции хранятся в облаке claude.ai. В этом просмотре база недоступна: откройте страницу в claude.ai, войдя в свою учётную запись.</p></div>`;
+  if (S.status === 'error') return `<div class="onb"><h1>Казна</h1><p>Связь с базой прервалась (${esc(S.err)}). Обновите страницу.</p></div>`;
+  if (!Object.keys(S.acc).length && !Object.keys(S.cat).length) return vOnboard();
+  return ({dash: vDash, ops: vOps, cal: vCal, rep: vRep, dict: vDict}[UI.view] || vDash)();
+}
+
+function vOnboard() {
+  return `<div class="onb">
+    <h1>Начнём учёт</h1>
+    <p>Казна ведёт движение денег по счетам, строит платёжный календарь с прогнозом остатков и собирает отчёты: движение денежных средств, прибыль и убытки, доходность проектов.</p>
+    <p>Для старта создам два счёта и типовой план статей, как в управленческом учёте малого бизнеса:</p>
+    <ul><li>Счета: «Расчётный счёт» и «Касса» с нулевым остатком</li><li>17 статей по операционной, инвестиционной и финансовой деятельности</li></ul>
+    <div class="row"><button class="btn primary w" data-act="starter">Создать счета и статьи</button><button class="btn w" data-act="import">Загрузить выписку CSV</button></div>
+    ${S.canWrite ? '' : '<p>У вас доступ только на просмотр, а книга пока пустая.</p>'}
+  </div>`;
+}
+
+/* ----- Сводка ----- */
+let CH = [];
+function vDash() {
+  const bal = balances(TODAY, false), total = sum(bal);
+  let inM = 0, outM = 0, rev = 0, exp = 0;
+  const catOut = {};
+  for (const o of S.list) {
+    if (o.status === 'fact' && o.date.slice(0, 7) === THIS_YM) {
+      if (o.kind === 'in') inM += o.amount;
+      if (o.kind === 'out') { outM += o.amount; catOut[o.category || ''] = (catOut[o.category || ''] || 0) + o.amount; }
+    }
+    if (o.status === 'fact' && o.kind !== 'move' && accrualMonth(o) === THIS_YM && S.cat[o.category] && S.cat[o.category].pnl) { if (o.kind === 'in') rev += o.amount; else exp += o.amount; }
+  }
+  const fact = series(addDays(TODAY, -60), TODAY, false).map(p => ({...p, f: true}));
+  const fc = series(addDays(TODAY, 1), addDays(TODAY, 60), true).map(p => ({...p, f: false}));
+  CH = fact.concat(fc);
+  const gap = series(TODAY, addDays(TODAY, 90), true).find(p => p.v < 0);
+  const endMonthPlan = sum(balances(`${THIS_YM}-${daysIn(THIS_YM)}`, true));
+
+  const plans = S.list.filter(o => o.status === 'plan' && o.date <= addDays(TODAY, 14)).sort((a, b) => a.date.localeCompare(b.date));
+  const late = plans.filter(o => o.date < TODAY).length;
+
+  const months = []; for (let i = 5; i >= 0; i--) months.push(addMonths(THIS_YM, -i));
+  const mIn = {}, mOut = {};
+  for (const o of S.list) if (o.status === 'fact') { const ym = o.date.slice(0, 7); if (o.kind === 'in') mIn[ym] = (mIn[ym] || 0) + o.amount; if (o.kind === 'out') mOut[ym] = (mOut[ym] || 0) + o.amount; }
+  const mMax = Math.max(1, ...months.map(m => Math.max(mIn[m] || 0, mOut[m] || 0)));
+  const topOut = Object.entries(catOut).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const outMax = topOut.length ? topOut[0][1] : 1;
+  const mp = MONTHS_PREP[+THIS_YM.slice(5) - 1];
+
+  return `
+  <div class="vh"><div><h1>Сводка</h1><div class="sub">${dayHead(TODAY)}</div></div>
+    <div class="row w"><button class="btn in" data-act="new-op" data-kind="in">+ Поступление</button><button class="btn out" data-act="new-op" data-kind="out">− Выплата</button><button class="btn" data-act="new-op" data-kind="move">⇄ Перевод</button></div></div>
+  ${hasDemo() ? `<div class="alert info" id="demo-bar"><span><b>Сейчас в книге примерные операции.</b> Они помечены как демо и нужны, чтобы показать отчёты. Удалите их, когда начнёте вносить свои.</span><span class="row w" id="demo-zone"><button class="btn small" data-act="demo-ask">Удалить примеры</button></span></div>` : ''}
+  ${gap ? `<div class="alert bad"><span><b>Кассовый разрыв ${dLabel(gap.d)}.</b> По плану платежей остаток опустится до ${money(gap.v)}.</span><button class="btn small" data-act="goto-cal" data-date="${gap.d}">Открыть календарь</button></div>` : ''}
+  <div class="tiles">
+    <div class="tile lead"><span class="lbl">На счетах сейчас</span><span class="val">${money(total)}</span><span class="note">к концу месяца по плану: ${money(endMonthPlan)}</span></div>
+    <div class="tile"><span class="lbl">Поступило в ${mp}</span><span class="val" style="color:var(--in)">${money(inM)}</span><span class="note">без переводов между счетами</span></div>
+    <div class="tile"><span class="lbl">Выплачено в ${mp}</span><span class="val" style="color:var(--out)">${money(outM)}</span><span class="note">денежный поток: ${money(inM - outM, true)}</span></div>
+    <div class="tile"><span class="lbl">Прибыль в ${mp}</span><span class="val ${rev - exp < 0 ? 'neg' : ''}">${money(rev - exp)}</span><span class="note">по ОПиУ${rev ? ', рентабельность ' + nf.format(r2((rev - exp) / rev * 100)) + ' %' : ''}</span></div>
+  </div>
+  <div class="dash">
+    <div class="stack">
+      <section class="panel"><h2>Остаток денег <small>60 дней назад и прогноз на 60 дней</small></h2>
+        <div class="chart" id="chart"></div>
+        <div class="legend"><span><i></i>факт</span><span><i class="p"></i>прогноз с учётом плановых платежей</span></div>
+      </section>
+      <section class="panel"><h2>Поступления и выплаты <small>последние 6 месяцев, факт</small></h2>
+        <div class="mbars">${months.map(m => `<div class="mb" title="${ymLabel(m)}: поступления ${money(mIn[m] || 0)}, выплаты ${money(mOut[m] || 0)}"><div class="mb-cols"><i class="b-in" style="height:${(mIn[m] || 0) / mMax * 100}%"></i><i class="b-out" style="height:${(mOut[m] || 0) / mMax * 100}%"></i></div><span>${MONTHS_SHORT[+m.slice(5) - 1]}</span></div>`).join('')}</div>
+        <div class="legend"><span><i class="bi"></i>поступления</span><span><i class="bo"></i>выплаты</span></div>
+      </section>
+    </div>
+    <div class="stack">
+      <section class="panel"><h2>Счета <small><button class="btn link" data-act="nav" data-view="dict">Все</button></small></h2>
+        <div class="list">${activeSorted(S.acc).map(([id, a]) => `<div class="li"><div class="t"><b>${esc(a.name)}</b><span>${TYPES[a.type] || 'Счёт'}</span></div><span class="amt ${bal[id] < 0 ? 'neg' : ''}">${money(bal[id] || 0)}</span></div>`).join('')}
+        <div class="li total"><span>Всего</span><span class="amt">${money(total)}</span></div></div>
+      </section>
+      <section class="panel"><h2>Ближайшие платежи <small>${late ? `<span class="pill late">просрочено: ${late}</span>` : '14 дней'}</small></h2>
+        ${plans.length ? `<div class="list">${plans.slice(0, 8).map(o => `<div class="li"><div class="t"><b>${esc(o.kind === 'move' ? 'Перевод на ' + accName(o.to) : (S.pty[o.party] && S.pty[o.party].name) || catName(o.category))}</b><span>${o.date < TODAY ? '<span class="pill late">просрочен</span> ' : ''}${dLabel(o.date)} · ${esc(o.kind === 'move' ? accName(o.account) : catName(o.category))}</span></div>
+          <div class="row" style="flex-wrap:nowrap"><span class="amt ${o.kind}">${o.kind === 'out' ? '−' : o.kind === 'in' ? '+' : ''}${money(o.amount)}</span><button class="btn small w" data-act="run-plan" data-id="${o.id}" title="Отметить оплаченным сегодняшней датой">Провести</button></div></div>`).join('')}</div>`
+          : `<p class="muted" style="margin:0">Плановых платежей на две недели нет. Запланируйте аренду, зарплату и налоги, и календарь покажет, хватит ли денег.</p>`}
+      </section>
+      <section class="panel bars"><h2>Куда уходят деньги <small>${MONTHS[+THIS_YM.slice(5) - 1].toLowerCase()}</small></h2>
+        ${topOut.length ? topOut.map(([c, v]) => `<div class="li" style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(catName(c))}</span><span class="amt">${money(v)}</span></div><div class="bar"><i style="width:${v / outMax * 100}%"></i></div></div>`).join('') : '<p class="muted" style="margin:0">В этом месяце выплат ещё не было.</p>'}
+      </section>
+    </div>
+  </div>`;
+}
+
+function ticks(min, max, n = 4) {
+  const span = max - min || 1, raw = span / n, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
+  const out = []; for (let v = Math.floor(min / step) * step; v <= Math.ceil(max / step) * step + step / 2; v += step) out.push(v);
+  return out;
+}
+function drawChart() {
+  const el = $('#chart'); if (!el || !CH.length) return;
+  const W = Math.max(300, el.clientWidth), H = W < 500 ? 200 : 250, pl = 58, pr = 12, pt = 12, pb = 26;
+  const vals = CH.map(p => p.v); const tk = ticks(Math.min(0, ...vals), Math.max(0, ...vals, 1));
+  const y0 = tk[0], y1 = tk[tk.length - 1], n = CH.length;
+  const X = i => pl + (W - pl - pr) * i / (n - 1), Y = v => pt + (H - pt - pb) * (1 - (v - y0) / (y1 - y0));
+  const ti = CH.findIndex(p => p.d === TODAY);
+  const path = (a, b) => CH.slice(a, b + 1).map((p, k) => (k ? 'L' : 'M') + X(a + k).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join('');
+  let g = '';
+  for (const t of tk) g += `<line class="c-grid" x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}"/><text class="c-lbl" x="${pl - 8}" y="${Y(t) + 4}" text-anchor="end">${compact(t)}</text>`;
+  if (y0 < 0) g += `<line class="c-zero" x1="${pl}" x2="${W - pr}" y1="${Y(0)}" y2="${Y(0)}"/>`;
+  CH.forEach((p, i) => { if (p.d.endsWith('-01')) g += `<text class="c-lbl" x="${X(i)}" y="${H - 8}" text-anchor="middle">${MONTHS_SHORT[+p.d.slice(5, 7) - 1]}</text>`; });
+
+  g += `<path class="c-area" d="${path(0, ti)}L${X(ti)} ${Y(y0)}L${X(0)} ${Y(y0)}Z"/>`;
+  g += `<path class="c-fact" d="${path(0, ti)}"/><path class="c-plan" d="${path(ti, n - 1)}"/>`;
+  g += `<line class="c-today" x1="${X(ti)}" x2="${X(ti)}" y1="${pt}" y2="${H - pb}"/><text class="c-lbl" x="${X(ti) + 4}" y="${pt + 10}">сегодня</text>`;
+  g += `<line class="c-hl" id="c-hl" x1="0" x2="0" y1="${pt}" y2="${H - pb}" visibility="hidden"/><circle class="c-dot" id="c-dot" r="4" cx="0" cy="0" visibility="hidden"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="График остатка денег на счетах">${g}<rect x="${pl}" y="0" width="${W - pl - pr}" height="${H}" fill="transparent" id="c-hit"/></svg><div class="tip" id="c-tip" hidden></div>`;
+
+  const svg = el.firstChild, hit = $('#c-hit', el), tip = $('#c-tip', el), hl = $('#c-hl', el), dot = $('#c-dot', el);
+  const show = e => {
+    const r = svg.getBoundingClientRect(); const x = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(n - 1, Math.round((x - pl) / (W - pl - pr) * (n - 1)))); const p = CH[i];
+    hl.setAttribute('x1', X(i)); hl.setAttribute('x2', X(i)); hl.setAttribute('visibility', 'visible');
+    dot.setAttribute('cx', X(i)); dot.setAttribute('cy', Y(p.v)); dot.setAttribute('visibility', 'visible');
+    tip.hidden = false; tip.textContent = `${dLabel(p.d)} · ${money(p.v)}${p.f ? '' : ' · прогноз'}`;
+    tip.style.left = Math.max(80, Math.min(r.width - 80, X(i) * r.width / W)) + 'px';
+  };
+  hit.addEventListener('pointermove', show);
+  hit.addEventListener('pointerleave', () => { tip.hidden = true; hl.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); });
+}
+
+/* ----- Операции ----- */
+function filteredOps() {
+  const q = UI.q.trim().toLowerCase();
+  return S.list.filter(o => {
+    if (!UI.opsAll && o.date.slice(0, 7) !== UI.opsMonth) return false;
+    if (UI.kind !== 'all' && o.kind !== UI.kind) return false;
+    if (UI.status !== 'all' && o.status !== UI.status) return false;
+    if (UI.facc && o.account !== UI.facc && o.to !== UI.facc) return false;
+    if (UI.fcat && o.category !== UI.fcat) return false;
+    if (UI.fprj && (UI.fprj === '_none' ? !!o.project : o.project !== UI.fprj)) return false;
+    if (q) { const hay = [o.note, S.pty[o.party] && S.pty[o.party].name, catName(o.category), accName(o.account), String(o.amount)].join(' ').toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  }).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
+}
+function opRow(o) {
+  const party = S.pty[o.party] && S.pty[o.party].name;
+  const desc = [party, o.note].filter(Boolean).join(' · ');
+  return `<button class="op" data-act="edit-op" data-id="${o.id}">
+    <span class="c">${o.kind === 'move' ? 'Перевод' : esc(catName(o.category))} ${o.status === 'plan' ? `<span class="pill ${o.date < TODAY ? 'late' : 'plan'}">${o.date < TODAY ? 'просрочен' : 'план'}</span>` : ''}${o.demo ? ' <span class="pill soft">демо</span>' : ''}</span>
+    <span class="d">${esc(desc) || '—'}</span>
+    <span class="a">${esc(accName(o.account))}${o.kind === 'move' ? ' → ' + esc(accName(o.to)) : ''}</span>
+    <span class="p">${o.project && S.prj[o.project] ? esc(S.prj[o.project].name) : ''}</span>
+    <span class="amt ${o.kind}">${o.kind === 'in' ? '+' : o.kind === 'out' ? '−' : ''}${money(o.amount)}</span></button>`;
+}
+function opGroups(list) {
+  const by = new Map(); for (const o of list) { if (!by.has(o.date)) by.set(o.date, []); by.get(o.date).push(o); }
+  let h = '';
+  for (const [d, arr] of by) {
+    const net = arr.reduce((s, o) => s + (o.kind === 'in' ? o.amount : o.kind === 'out' ? -o.amount : 0), 0);
+    h += `<div class="day-h"><b>${dayHead(d)}</b><span class="num">${net ? money(net, true) : ''}</span></div><div class="og">${arr.map(opRow).join('')}</div>`;
+  }
+  return h;
+}
+function vOps() {
+  const list = filteredOps();
+  let tin = 0, tout = 0; for (const o of list) { if (o.kind === 'in') tin += o.amount; if (o.kind === 'out') tout += o.amount; }
+  const sel = (id, f, first, opts) => `<select id="${id}" data-f="${f}" aria-label="${first}"><option value="">${first}</option>${opts}</select>`;
+  const o2 = (map, cur) => activeSorted(map).map(([id, x]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${esc(x.name)}${x.archived ? ' (архив)' : ''}</option>`).join('');
+  const catOpts = ['in', 'out'].map(k => `<optgroup label="${k === 'in' ? 'Поступления' : 'Выплаты'}">${activeSorted(S.cat).filter(([, c]) => c.kind === k).map(([id, c]) => `<option value="${id}" ${id === UI.fcat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('');
+  const chip = (v, t) => `<button class="chip" data-act="set" data-k="kind" data-v="${v}" aria-pressed="${UI.kind === v}">${t}</button>`;
+  return `
+  <div class="vh"><div><h1>Операции</h1><div class="sub">Проведённые и плановые платежи по всем счетам</div></div>
+    <div class="row"><span class="w row"><button class="btn in" data-act="new-op" data-kind="in">+ Поступление</button><button class="btn out" data-act="new-op" data-kind="out">− Выплата</button><button class="btn" data-act="new-op" data-kind="move">⇄ Перевод</button><button class="btn" data-act="import">Импорт CSV</button></span>${S.dl ? '<button class="btn" data-act="export">Экспорт CSV</button>' : ''}</div></div>
+  <div class="bar-tools">
+    <span class="month-nav" ${UI.opsAll ? 'hidden' : ''}><button class="iconbtn" data-act="ops-month" data-dir="-1" aria-label="Предыдущий месяц">‹</button><b>${ymLabel(UI.opsMonth)}</b><button class="iconbtn" data-act="ops-month" data-dir="1" aria-label="Следующий месяц">›</button></span>
+    <label class="chk"><input type="checkbox" id="f-all" data-f="opsAll" ${UI.opsAll ? 'checked' : ''}>За всё время</label>
+    <span class="chips">${chip('all', 'Все')}${chip('in', 'Поступления')}${chip('out', 'Выплаты')}${chip('move', 'Переводы')}</span>
+  </div>
+  <div class="filters">
+    <input type="search" id="f-q" data-f="q" placeholder="Поиск: контрагент, назначение, сумма" value="${esc(UI.q)}" aria-label="Поиск">
+    <select id="f-status" data-f="status" aria-label="Статус"><option value="all">Факт и план</option><option value="fact" ${UI.status === 'fact' ? 'selected' : ''}>Только проведённые</option><option value="plan" ${UI.status === 'plan' ? 'selected' : ''}>Только плановые</option></select>
+    ${sel('f-acc', 'facc', 'Все счета', o2(S.acc, UI.facc))}
+    ${sel('f-cat', 'fcat', 'Все статьи', catOpts)}
+    ${sel('f-prj', 'fprj', 'Все проекты', `<option value="_none" ${UI.fprj === '_none' ? 'selected' : ''}>Без проекта</option>` + o2(S.prj, UI.fprj))}
+  </div>
+  <div class="sums"><span>Операций: <b>${list.length}</b></span><span>Поступления: <b style="color:var(--in)">${money(tin)}</b></span><span>Выплаты: <b style="color:var(--out)">${money(tout)}</b></span><span>Разница: <b>${money(tin - tout, true)}</b></span></div>
+  ${list.length ? opGroups(list) : `<div class="empty"><b>Операций не найдено</b>${S.list.length ? 'Измените период или сбросьте фильтры.' : 'Добавьте первую операцию или загрузите выписку из банка в CSV.'}</div>`}`;
+}
+
+/* ----- Платёжный календарь ----- */
+function vCal() {
+  const ym = UI.calMonth, nd = daysIn(ym), first = `${ym}-01`, last = `${ym}-${nd}`;
+  const fact = series(first, last, false), plan = series(first, last, true);
+  const flows = {};
+  for (const o of S.list) { if (o.date.slice(0, 7) !== ym || o.kind === 'move') continue; const f = flows[o.date] || (flows[o.date] = {in: 0, out: 0, plan: false}); f[o.kind] += o.amount; if (o.status === 'plan') f.plan = true; }
+  const lead = (new Date(first + 'T00:00:00').getDay() + 6) % 7;
+  let cells = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map(w => `<div class="wd">${w}</div>`).join('');
+  for (let i = 0; i < lead; i++) cells += '<div class="blank"></div>';
+  let minP = null;
+  for (let i = 0; i < nd; i++) {
+    const d = `${ym}-${String(i + 1).padStart(2, '0')}`, past = d < TODAY, v = past ? fact[i].v : plan[i].v, f = flows[d];
+    if (!past && (minP === null || v < minP.v)) minP = {d, v};
+    cells += `<button class="day ${d === TODAY ? 'today' : ''} ${v < 0 ? 'neg' : ''} ${d === UI.calDay ? 'sel' : ''} ${past ? 'past' : ''}" data-act="cal-day" data-date="${d}" aria-label="${dLabel(d)}, остаток ${money(v)}">
+      <span class="n"><span>${i + 1}</span>${f && f.plan ? '<i title="Есть плановые платежи"></i>' : ''}</span>
+      ${f && f.in ? `<span class="fl in">+${compact(f.in)}</span>` : ''}${f && f.out ? `<span class="fl out">−${compact(f.out)}</span>` : ''}
+      <span class="bal">${compact(v)}</span></button>`;
+  }
+  const tail = (7 - (lead + nd) % 7) % 7; for (let i = 0; i < tail; i++) cells += '<div class="blank"></div>';
+  const dayOps = S.list.filter(o => o.date === UI.calDay).sort((a, b) => (a.created || 0) - (b.created || 0));
+  const endPlan = plan[nd - 1].v;
+  return `
+  <div class="vh"><div><h1>Платёжный календарь</h1><div class="sub">Остаток на конец дня: прошедшие дни по факту, будущие с учётом плановых платежей</div></div>
+    <span class="month-nav"><button class="iconbtn" data-act="cal-month" data-dir="-1" aria-label="Предыдущий месяц">‹</button><b>${ymLabel(ym)}</b><button class="iconbtn" data-act="cal-month" data-dir="1" aria-label="Следующий месяц">›</button></span></div>
+  <div class="sums"><span>Остаток на конец месяца по плану: <b class="${endPlan < 0 ? 'neg' : ''}">${money(endPlan)}</b></span>${minP ? `<span>Минимум впереди: <b class="${minP.v < 0 ? 'neg' : ''}">${money(minP.v)}</b> · ${dLabel(minP.d)}</span>` : ''}</div>
+  <div class="cal-wrap"><div class="cal">${cells}</div></div>
+  <div class="day-h" style="margin-top:10px"><b>${dayHead(UI.calDay)}</b><span class="w"><button class="btn small" data-act="new-op" data-date="${UI.calDay}" data-status="${UI.calDay > TODAY ? 'plan' : 'fact'}">+ ${UI.calDay > TODAY ? 'Запланировать платёж' : 'Операция на эту дату'}</button></span></div>
+  ${dayOps.length ? `<div class="og">${dayOps.map(opRow).join('')}</div>` : '<div class="empty">На этот день операций нет.</div>'}`;
+}
+
+/* ----- Отчёты ----- */
+const cell = (v, cls = '') => { if (Math.abs(v) < 0.005) return `<td class="${cls}"><span class="zero">—</span></td>`; return `<td class="${cls}"><span class="${v < 0 ? 'neg' : ''}">${v < 0 ? '−' : ''}${nf0.format(Math.abs(v))}</span></td>`; };
+function repRow(label, arr, cls, totalV) {
+  const Y = String(UI.repYear), curM = TODAY.slice(0, 4) === Y ? +TODAY.slice(5, 7) - 1 : -1;
+  const t = totalV === undefined ? arr.reduce((s, v) => s + v, 0) : totalV;
+  return `<tr class="${cls || ''}"><td>${label}</td>${arr.map((v, i) => cell(v, i === curM ? 'cur' : '')).join('')}${totalV === null ? '<td class="tc"></td>' : cell(t, 'tc')}</tr>`;
+}
+const repHead = first => `<thead><tr><th>${first}</th>${MONTHS_SHORT.map(m => `<th>${m}</th>`).join('')}<th>Итого</th></tr></thead>`;
+const repOps = () => S.list.filter(o => o.status === 'fact' || UI.repPlan);
+function cashflow() {
+  const Y = String(UI.repYear), ops = repOps().filter(o => o.kind !== 'move' && o.date.slice(0, 4) === Y);
+  const sums = {};
+  for (const o of ops) { const key = (S.cat[o.category] ? o.category : '_') + '|' + o.kind; (sums[key] || (sums[key] = Array(12).fill(0)))[+o.date.slice(5, 7) - 1] += o.amount; }
+  const Z = () => Array(12).fill(0), add = (a, b, k = 1) => a.map((v, i) => v + k * b[i]);
+  let body = '', net = Z();
+  for (const fl of ['op', 'inv', 'fin']) {
+    const keys = Object.keys(sums).filter(k => { const [c] = k.split('|'); return (c === '_' ? 'op' : S.cat[c].flow || 'op') === fl; });
+    if (!keys.length) continue;
+    const part = kind => keys.filter(k => k.endsWith('|' + kind)).sort((a, b) => catName(a.split('|')[0]).localeCompare(catName(b.split('|')[0]), 'ru'));
+    let tin = Z(), tout = Z(), rowsIn = '', rowsOut = '';
+    for (const k of part('in')) { tin = add(tin, sums[k]); rowsIn += repRow(esc(catName(k.split('|')[0])), sums[k], 'cat'); }
+    for (const k of part('out')) { tout = add(tout, sums[k]); rowsOut += repRow(esc(catName(k.split('|')[0])), sums[k].map(v => -v), 'cat'); }
+    const saldo = add(tin, tout, -1); net = add(net, saldo);
+    body += `<tr class="sec"><td colspan="14">${FLOWS[fl]} деятельность</td></tr>` + repRow('Поступления', tin, 'sub') + rowsIn + repRow('Выплаты', tout.map(v => -v), 'sub') + rowsOut + repRow('Сальдо', saldo, 'sub');
+  }
+  const open = [], close = []; let b = sum(balances(`${UI.repYear - 1}-12-31`, UI.repPlan));
+  for (let i = 0; i < 12; i++) { open.push(b); b += net[i]; close.push(b); }
+  return `<div class="tbl-wrap"><table class="rep">${repHead('Статья')}<tbody>${repRow('Остаток на начало', open, 'bal', open[0])}${body}${repRow('Чистый денежный поток', net, 'tot')}${repRow('Остаток на конец', close, 'bal', close[11])}</tbody></table></div>
+  <p class="foot-note">Отчёт о движении денежных средств строится по дате платежа. Переводы между своими счетами не учитываются. Выплаты показаны со знаком минус.</p>`;
+}
+function pnl() {
+  const Y = String(UI.repYear), ops = repOps().filter(o => o.kind !== 'move' && accrualMonth(o).slice(0, 4) === Y);
+  const rev = {}, exp = {}; let skipped = 0;
+  for (const o of ops) {
+    const c = S.cat[o.category]; if (!c) { skipped++; continue; } if (!c.pnl) continue;
+    const t = o.kind === 'in' ? rev : exp; (t[o.category] || (t[o.category] = Array(12).fill(0)))[+accrualMonth(o).slice(5) - 1] += o.amount;
+  }
+  const tot = m => { const a = Array(12).fill(0); for (const k in m) m[k].forEach((v, i) => a[i] += v); return a; };
+  const R = tot(rev), E = tot(exp), P = R.map((v, i) => v - E[i]);
+  const rows = (m, sign) => Object.keys(m).sort((a, b) => catName(a).localeCompare(catName(b), 'ru')).map(k => repRow(esc(catName(k)), m[k].map(v => sign * v), 'cat')).join('');
+  const Y12 = R.reduce((s, v) => s + v, 0), P12 = P.reduce((s, v) => s + v, 0);
+  const pct = (p, r) => r ? `<td><span class="${p < 0 ? 'neg' : ''}">${nf.format(r2(p / r * 100))} %</span></td>` : '<td><span class="zero">—</span></td>';
+  return `<div class="tbl-wrap"><table class="rep">${repHead('Показатель')}<tbody>
+    ${repRow('Выручка', R, 'sub')}${rows(rev, 1)}${repRow('Расходы', E.map(v => -v), 'sub')}${rows(exp, -1)}${repRow('Чистая прибыль', P, 'tot')}
+    <tr class="bal"><td>Рентабельность</td>${P.map((p, i) => pct(p, R[i])).join('')}${pct(P12, Y12).replace('<td>', '<td class="tc">')}</tr></tbody></table></div>
+  <p class="foot-note">ОПиУ считается по месяцу начисления: если он не указан, берётся месяц платежа. В отчёт попадают статьи с отметкой «Учитывать в ОПиУ», поэтому кредиты, вложения и покупка оборудования прибыль не меняют.${skipped ? ` Операций без статьи за год: ${skipped}, в отчёт они не вошли.` : ''}</p>`;
+}
+function projects() {
+  const Y = String(UI.repYear), ops = repOps().filter(o => o.kind !== 'move' && o.date.slice(0, 4) === Y);
+  const m = {}; for (const o of ops) { const k = S.prj[o.project] ? o.project : ''; const x = m[k] || (m[k] = {in: 0, out: 0}); x[o.kind] += o.amount; }
+  const rows = Object.entries(m).map(([k, x]) => ({k, ...x, p: x.in - x.out})).sort((a, b) => b.p - a.p);
+  if (!rows.length) return '<div class="empty"><b>За год операций нет</b>Выберите другой год или добавьте операции.</div>';
+  const T = rows.reduce((s, r) => ({in: s.in + r.in, out: s.out + r.out}), {in: 0, out: 0});
+  const line = (name, r, cls = '') => { const mg = r.in ? (r.in - r.out) / r.in * 100 : null; return `<tr class="${cls}"><td>${name}</td>${cell(r.in)}${cell(-r.out)}${cell(r.in - r.out)}<td>${mg === null ? '<span class="zero">—</span>' : `<span class="${mg < 0 ? 'neg' : ''}">${nf.format(r2(mg))} %</span>${mg > 0 ? `<span class="mbar"><i style="width:${Math.min(100, mg)}%"></i></span>` : ''}`}</td></tr>`; };
+  return `<div class="tbl-wrap"><table class="rep"><thead><tr><th>Проект</th><th>Поступления</th><th>Выплаты</th><th>Прибыль</th><th>Рентабельность</th></tr></thead><tbody>
+    ${rows.map(r => line(r.k ? esc(S.prj[r.k].name) : '<span class="muted">Без проекта</span>', r)).join('')}${line('Итого', T, 'tot')}</tbody></table></div>
+  <p class="foot-note">Доходность проектов считается по деньгам: поступления минус выплаты с привязкой к проекту за ${UI.repYear} год. Общие расходы без проекта видны отдельной строкой.</p>`;
+}
+function vRep() {
+  const tab = (v, t) => `<button role="tab" data-act="set" data-k="repTab" data-v="${v}" aria-selected="${UI.repTab === v}">${t}</button>`;
+  const body = UI.repTab === 'pnl' ? pnl() : UI.repTab === 'prj' ? projects() : cashflow();
+  return `
+  <div class="vh"><div><h1>Отчёты</h1><div class="sub">Суммы в рублях, по месяцам</div></div>
+    <span class="month-nav"><button class="iconbtn" data-act="rep-year" data-dir="-1" aria-label="Предыдущий год">‹</button><b style="min-width:60px">${UI.repYear}</b><button class="iconbtn" data-act="rep-year" data-dir="1" aria-label="Следующий год">›</button></span></div>
+  <div class="bar-tools"><div class="tabs" role="tablist">${tab('cf', 'ДДС')}${tab('pnl', 'ОПиУ')}${tab('prj', 'Проекты')}</div>
+    <label class="chk"><input type="checkbox" id="f-plan" data-f="repPlan" ${UI.repPlan ? 'checked' : ''}>Учитывать плановые платежи</label></div>
+  ${body}`;
+}
+
+/* ----- Справочники ----- */
+function vDict() {
+  const tab = (v, t) => `<button role="tab" data-act="set" data-k="dictTab" data-v="${v}" aria-selected="${UI.dictTab === v}">${t}</button>`;
+  const bal = balances(TODAY, false);
+  const cnt = {}, turn = {}; for (const o of S.list) for (const k of [o.account, o.to, o.category, o.project, o.party]) if (k) { cnt[k] = (cnt[k] || 0) + 1; turn[k] = (turn[k] || 0) + (o.kind === 'move' ? 0 : o.amount); }
+  const all = map => Object.entries(map).sort((a, b) => (!!a[1].archived - !!b[1].archived) || (a[1].order ?? 0) - (b[1].order ?? 0) || a[1].name.localeCompare(b[1].name, 'ru'));
+  const ed = (t, id) => `<button class="btn small w" data-act="dict-edit" data-type="${t}" data-id="${id}">Изменить</button>`;
+  let body = '';
+  if (UI.dictTab === 'acc') body = `<section class="panel"><h2>Счета и кассы <small>${Object.keys(S.acc).length}</small></h2>${all(S.acc).map(([id, a]) => `<div class="di ${a.archived ? 'arch' : ''}"><div class="t"><b>${esc(a.name)}</b><span>${TYPES[a.type] || 'Счёт'} · начальный остаток ${money(+a.opening || 0)}${a.archived ? ' · в архиве' : ''}</span></div><span class="amt ${bal[id] < 0 ? 'neg' : ''}">${money(bal[id] || 0)}</span>${ed('acc', id)}</div>`).join('') || '<p class="muted">Счетов пока нет.</p>'}</section>`;
+  if (UI.dictTab === 'cat') body = `<div class="dict">${['in', 'out'].map(k => `<section class="panel"><h2>${k === 'in' ? 'Статьи поступлений' : 'Статьи выплат'}</h2>${all(S.cat).filter(([, c]) => c.kind === k).map(([id, c]) => `<div class="di ${c.archived ? 'arch' : ''}"><div class="t"><b>${esc(c.name)}</b><span>${FLOWS[c.flow] || FLOWS.op} · ${c.pnl ? 'в ОПиУ' : 'не влияет на прибыль'}${c.archived ? ' · в архиве' : ''}</span></div><span class="muted num" style="font-size:12px">${cnt[id] || 0} оп.</span>${ed('cat', id)}</div>`).join('') || '<p class="muted">Нет статей.</p>'}</section>`).join('')}</div>`;
+  if (UI.dictTab === 'prj') body = `<section class="panel"><h2>Проекты и направления <small>${Object.keys(S.prj).length}</small></h2>${all(S.prj).map(([id, p]) => `<div class="di ${p.archived ? 'arch' : ''}"><div class="t"><b>${esc(p.name)}</b><span>${cnt[id] || 0} операций${p.archived ? ' · в архиве' : ''}</span></div><span class="amt">${money(turn[id] || 0)}</span>${ed('prj', id)}</div>`).join('') || '<p class="muted">Проекты помогают считать доходность направлений: филиалов, услуг, клиентов.</p>'}</section>`;
+  if (UI.dictTab === 'pty') body = `<section class="panel"><h2>Контрагенты <small>${Object.keys(S.pty).length}</small></h2>${all(S.pty).map(([id, p]) => `<div class="di"><div class="t"><b>${esc(p.name)}</b><span>${p.inn ? 'ИНН ' + esc(p.inn) + ' · ' : ''}${cnt[id] || 0} операций</span></div><span class="amt">${money(turn[id] || 0)}</span>${ed('pty', id)}</div>`).join('') || '<p class="muted">Контрагенты появляются сами, когда вы вписываете их в операцию.</p>'}</section>`;
+  const addLbl = {acc: 'Добавить счёт', cat: 'Добавить статью', prj: 'Добавить проект', pty: 'Добавить контрагента'}[UI.dictTab];
+  return `<div class="vh"><div><h1>Справочники</h1><div class="sub">Счета, статьи учёта, проекты и контрагенты</div></div><button class="btn primary w" data-act="dict-edit" data-type="${UI.dictTab}">${addLbl}</button></div>
+  <div class="bar-tools"><div class="tabs" role="tablist">${tab('acc', 'Счета')}${tab('cat', 'Статьи')}${tab('prj', 'Проекты')}${tab('pty', 'Контрагенты')}</div></div>${body}`;
+}
+
+/* ---------- модальные окна ---------- */
+function openModal(html, wide) {
+  modalRoot.innerHTML = `<div class="scrim" data-scrim><div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">${html}</div></div>`;
+  const f = modalRoot.querySelector('input:not([type=radio]):not([type=hidden]),select,textarea'); if (f) f.focus();
+}
+const closeModal = () => { modalRoot.innerHTML = ''; };
+const mHead = t => `<div class="m-head"><h2>${t}</h2><button type="button" class="x" data-act="close-modal" aria-label="Закрыть">×</button></div>`;
+
+function openOp(id, preset = {}) {
+  if (!Object.keys(S.acc).length) { toast('Сначала добавьте счёт в справочниках.'); return; }
+  const o = id ? {...S.ops[id]} : {kind: preset.kind || 'out', date: preset.date || TODAY, status: preset.status || ((preset.date || TODAY) > TODAY ? 'plan' : 'fact'), account: UI.facc || activeSorted(S.acc)[0][0]};
+  if (!id && o.kind === 'move') { const other = activeSorted(S.acc).find(([a]) => a !== o.account); o.to = other ? other[0] : ''; }
+  const accOpts = cur => activeSorted(S.acc, cur).map(([a, x]) => `<option value="${a}" ${a === cur ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  const pname = o.party && S.pty[o.party] ? S.pty[o.party].name : '';
+  openModal(`<form class="mform" data-form="op" data-id="${id || ''}" data-cat="${o.category || ''}" novalidate>
+    ${mHead(id ? 'Операция' : 'Новая операция')}
+    <div class="seg seg-kind" role="radiogroup" aria-label="Тип операции">${['in', 'out', 'move'].map(k => `<label class="k-${k}"><input type="radio" name="k" value="${k}" ${o.kind === k ? 'checked' : ''}><span>${KINDS[k]}</span></label>`).join('')}</div>
+    <div class="grid2">
+      <div class="field"><label for="f-amount">Сумма, ₽</label><input id="f-amount" inputmode="decimal" autocomplete="off" value="${o.amount != null ? String(o.amount).replace('.', ',') : ''}" placeholder="0,00"></div>
+      <div class="field"><label for="f-date">Дата платежа</label><input id="f-date" type="date" value="${o.date}"></div>
+    </div>
+    <div class="field"><span class="lbl">Статус</span><div class="seg" role="radiogroup" aria-label="Статус" style="justify-self:start"><label><input type="radio" name="st" value="fact" ${o.status !== 'plan' ? 'checked' : ''}><span>Проведена</span></label><label><input type="radio" name="st" value="plan" ${o.status === 'plan' ? 'checked' : ''}><span>Планируется</span></label></div></div>
+    <div class="grid2">
+      <div class="field"><label for="f-acc">${'Счёт'}</label><select id="f-acc">${accOpts(o.account)}</select></div>
+      <div class="field only-move"><label for="f-to">На счёт</label><select id="f-to">${accOpts(o.to)}</select></div>
+      <div class="field no-move"><label for="f-cat">Статья</label><select id="f-cat"></select></div>
+    </div>
+    <div class="grid2 no-move">
+      <div class="field"><label for="f-party">Контрагент</label><input id="f-party" list="dl-party" autocomplete="off" value="${esc(pname)}" placeholder="Кому платим или от кого"><datalist id="dl-party">${Object.values(S.pty).map(p => `<option value="${esc(p.name)}"></option>`).join('')}</datalist></div>
+      <div class="field"><label for="f-prj">Проект</label><select id="f-prj"><option value="">Без проекта</option>${activeSorted(S.prj, o.project).map(([p, x]) => `<option value="${p}" ${p === o.project ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+    </div>
+    <div class="field no-move"><label for="f-accr">Месяц начисления <span class="hint">для ОПиУ, если отличается от месяца платежа</span></label><input id="f-accr" type="month" value="${o.accrual || ''}"></div>
+    <div class="field"><label for="f-note">Назначение платежа</label><textarea id="f-note" rows="2">${esc(o.note || '')}</textarea></div>
+    ${id ? '' : `<div class="field only-plan"><label for="f-rep">Повтор</label><select id="f-rep"><option value="1">Не повторять</option>${[2, 3, 4, 6, 12].map(n => `<option value="${n}">Каждый месяц, ${n} раз${n < 5 ? 'а' : ''}</option>`).join('')}</select></div>`}
+    <p class="form-err" id="f-err" role="alert"></p>
+    <div class="m-foot">${id ? `<span id="del-zone" class="w"><button type="button" class="btn danger" data-act="del-ask">Удалить</button></span>` : '<span></span>'}<div class="m-actions"><button type="button" class="btn" data-act="close-modal">Отмена</button><button type="submit" class="btn primary w">Сохранить</button></div></div>
+  </form>`);
+  syncOpForm();
+  if (!id) $('#f-amount').focus();
+}
+function syncOpForm() {
+  const f = modalRoot.querySelector('form[data-form="op"]'); if (!f) return;
+  const kind = f.querySelector('input[name=k]:checked').value; f.dataset.kind = kind;
+  f.dataset.st = f.querySelector('input[name=st]:checked').value;
+  if (kind === 'move') return;
+  const sel = $('#f-cat', f), cur = sel.value || f.dataset.cat;
+  const cats = activeSorted(S.cat, cur).filter(([, c]) => c.kind === kind);
+  const groups = ['op', 'inv', 'fin'].map(fl => { const it = cats.filter(([, c]) => (c.flow || 'op') === fl); return it.length ? `<optgroup label="${FLOWS[fl]}">${it.map(([id, c]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
+  sel.innerHTML = `<option value="">Без статьи</option>` + groups;
+}
+async function saveOp(f) {
+  const id = f.dataset.id || null, g = s => $(s, f), err = m => { g('#f-err').textContent = m; };
+  const kind = f.querySelector('input[name=k]:checked').value, status = f.querySelector('input[name=st]:checked').value;
+  const amount = r2(parseAmount(g('#f-amount').value)), date = g('#f-date').value, account = g('#f-acc').value;
+  if (!(amount > 0)) return err('Укажите сумму больше нуля.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('Укажите дату платежа.');
+  if (!account) return err('Выберите счёт.');
+  const doc = {date, kind, amount, account, status};
+  const note = g('#f-note').value.trim(); if (note) doc.note = note;
+  if (kind === 'move') { const to = g('#f-to').value; if (!to || to === account) return err('Для перевода выберите другой счёт получателя.'); doc.to = to; }
+  else {
+    const c = g('#f-cat').value; if (c) doc.category = c;
+    const p = g('#f-prj').value; if (p) doc.project = p;
+    const a = g('#f-accr').value; if (a && a !== date.slice(0, 7)) doc.accrual = a;
+    const pn = g('#f-party').value.trim();
+    if (pn) { let pid = findByName(S.pty, pn); if (!pid) { pid = 'p' + newId(); if (!await put('pty', pid, {name: pn})) return; } doc.party = pid; }
+  }
+  const prev = id ? S.ops[id] : null; doc.created = (prev && prev.created) || Date.now(); if (prev && prev.demo) doc.demo = true;
+  f.querySelectorAll('button').forEach(b => b.disabled = true);
+  let ok = true;
+  if (id) ok = await put('ops', id, doc);
+  else {
+    const n = status === 'plan' ? +(g('#f-rep') ? g('#f-rep').value : 1) : 1;
+    for (let i = 0; i < n && ok; i++) { const d = {...doc, date: addMonthsDate(date, i), created: doc.created + i}; if (doc.accrual) d.accrual = addMonths(doc.accrual, i); ok = await put('ops', 'o' + newId(), d); }
+    if (ok && n > 1) { closeModal(); toast(`Запланировано платежей: ${n}`); return; }
+  }
+  if (!ok) { f.querySelectorAll('button').forEach(b => b.disabled = false); return; }
+  closeModal(); toast(id ? 'Операция сохранена' : 'Операция добавлена');
+}
+
+function openDict(type, id) {
+  const x = id ? (S[type][id] || {}) : {};
+  const used = id ? usage(id) : 0;
+  const title = {acc: id ? 'Счёт' : 'Новый счёт', cat: id ? 'Статья' : 'Новая статья', prj: id ? 'Проект' : 'Новый проект', pty: id ? 'Контрагент' : 'Новый контрагент'}[type];
+  let fields = `<div class="field"><label for="d-name">Название</label><input id="d-name" value="${esc(x.name || '')}" autocomplete="off"></div>`;
+  if (type === 'acc') fields += `<div class="grid2"><div class="field"><label for="d-type">Тип</label><select id="d-type">${Object.entries(TYPES).map(([k, t]) => `<option value="${k}" ${k === (x.type || 'bank') ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label for="d-open">Остаток на начало учёта, ₽</label><input id="d-open" inputmode="decimal" value="${x.opening ? String(x.opening).replace('.', ',') : ''}" placeholder="0"></div></div>`;
+  if (type === 'cat') fields += `<div class="field"><span class="lbl">Тип</span><div class="seg" style="justify-self:start"><label><input type="radio" name="dk" value="in" ${x.kind === 'in' ? 'checked' : ''}><span>Поступление</span></label><label><input type="radio" name="dk" value="out" ${x.kind !== 'in' ? 'checked' : ''}><span>Выплата</span></label></div></div>
+      <div class="field"><label for="d-flow">Вид деятельности <span class="hint">раздел в ДДС</span></label><select id="d-flow">${Object.entries(FLOWS).map(([k, t]) => `<option value="${k}" ${k === (x.flow || 'op') ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <label class="chk"><input type="checkbox" id="d-pnl" ${x.pnl !== false ? 'checked' : ''}>Учитывать в ОПиУ (влияет на прибыль)</label>`;
+  if (type === 'pty') fields += `<div class="field"><label for="d-inn">ИНН <span class="hint">необязательно</span></label><input id="d-inn" inputmode="numeric" value="${esc(x.inn || '')}"></div>`;
+  const canArch = id && type !== 'pty';
+  openModal(`<form class="mform" data-form="dict" data-type="${type}" data-id="${id || ''}" novalidate>${mHead(title)}${fields}
+    ${id && used ? `<p class="hint" style="margin:0">Используется в операциях: ${used}. Удалить нельзя${canArch ? ', можно отправить в архив: из списков исчезнет, отчёты сохранятся' : ''}.</p>` : ''}
+    <p class="form-err" id="f-err" role="alert"></p>
+    <div class="m-foot"><span id="del-zone" class="row w">${id && !used ? '<button type="button" class="btn danger" data-act="del-ask">Удалить</button>' : ''}${canArch ? `<button type="button" class="btn" data-act="dict-arch">${x.archived ? 'Вернуть из архива' : 'В архив'}</button>` : ''}</span>
+      <div class="m-actions"><button type="button" class="btn" data-act="close-modal">Отмена</button><button type="submit" class="btn primary w">Сохранить</button></div></div></form>`);
+}
+async function saveDict(f) {
+  const type = f.dataset.type, id = f.dataset.id || null, g = s => $(s, f), err = m => { g('#f-err').textContent = m; };
+  const name = g('#d-name').value.trim(); if (!name) return err('Введите название.');
+  const dup = findByName(S[type], name); if (dup && dup !== id) return err('Такое название уже есть.');
+  const doc = {...(id ? S[type][id] : {}), name};
+  if (type === 'acc') { doc.type = g('#d-type').value; const v = g('#d-open').value.trim() ? parseAmount(g('#d-open').value) : 0; if (!Number.isFinite(v)) return err('Остаток должен быть числом.'); doc.opening = r2(v); if (doc.order == null) doc.order = Object.keys(S.acc).length; }
+  if (type === 'cat') { doc.kind = f.querySelector('input[name=dk]:checked').value; doc.flow = g('#d-flow').value; doc.pnl = g('#d-pnl').checked; }
+  if (type === 'pty') { const inn = g('#d-inn').value.trim(); if (inn) doc.inn = inn; else delete doc.inn; }
+  if (await put(type, id || type[0] + newId(), doc)) { closeModal(); toast('Сохранено'); }
+}
+
+/* ---------- импорт и экспорт ---------- */
+function splitLine(line, d) { const out = []; let cur = '', q = false; for (let i = 0; i < line.length; i++) { const c = line[i]; if (q) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; } else if (c === '"') q = true; else if (c === d) { out.push(cur); cur = ''; } else cur += c; } out.push(cur); return out.map(s => s.trim()); }
+function parseCSV(text) {
+  const lines = text.replace(/^﻿/, '').replace(/\r/g, '').split('\n').filter(l => l.trim());
+  if (!lines.length) return {rows: [], errors: []};
+  const d = lines[0].includes(';') ? ';' : lines[0].includes('\t') ? '\t' : ',';
+  const rows = [], errors = [];
+  lines.forEach((l, i) => {
+    const c = splitLine(l, d), date = parseDate(c[0]);
+    if (!date) { if (i > 0) errors.push(`Строка ${i + 1}: не распознана дата «${c[0]}»`); return; }
+    const a = parseAmount(c[1]); if (!a) { errors.push(`Строка ${i + 1}: не распознана сумма «${c[1] || ''}»`); return; }
+    rows.push({date, amount: r2(Math.abs(a)), kind: a < 0 ? 'out' : 'in', acc: c[2] || '', cat: c[3] || '', party: c[4] || '', prj: c[5] || '', note: c[6] || ''});
+  });
+  return {rows, errors};
+}
+let IMP = null;
+function openImport() {
+  openModal(`${mHead('Импорт операций из CSV')}
+    <p style="margin:0" class="muted">Выгрузите выписку из банка или таблицы и приведите к столбцам ниже. Разделитель: точка с запятой, запятая или табуляция. Выплаты указывайте со знаком минус. Незнакомые счета, статьи, контрагенты и проекты будут созданы.</p>
+    <div class="fmt">дата;сумма;счёт;статья;контрагент;проект;назначение
+05.09.2026;-120000;Расчётный счёт;Аренда;ООО Бизнес-центр;;Аренда за сентябрь
+07.09.2026;45800,50;Касса;Выручка от продаж;;;Выручка за день</div>
+    <div class="field"><label for="imp-file">Файл CSV</label><input type="file" id="imp-file" accept=".csv,.txt,text/csv"></div>
+    <div class="field"><label for="imp-text">или вставьте строки</label><textarea id="imp-text" rows="6"></textarea></div>
+    <div id="imp-res"></div>
+    <div class="m-foot"><span></span><div class="m-actions"><button class="btn" data-act="close-modal">Отмена</button><button class="btn" data-act="imp-parse">Проверить</button><button class="btn primary" data-act="imp-go" id="imp-go" disabled>Загрузить</button></div></div>`, true);
+}
+function impPreview() {
+  IMP = parseCSV($('#imp-text').value);
+  const {rows, errors} = IMP;
+  $('#imp-res').innerHTML = `${rows.length ? `<div class="tbl-wrap imp-prev"><table class="rep"><thead><tr><th>Дата</th><th>Сумма</th><th>Счёт</th><th>Статья</th><th>Контрагент</th><th>Проект</th><th>Назначение</th></tr></thead><tbody>${rows.slice(0, 50).map(r => `<tr><td>${dLabel(r.date)}</td><td><span class="${r.kind === 'out' ? 'neg' : ''}">${r.kind === 'out' ? '−' : '+'}${nf.format(r.amount)}</span></td><td style="font-family:var(--f-body);text-align:left">${esc(r.acc || '—')}</td><td style="font-family:var(--f-body);text-align:left">${esc(r.cat || '—')}</td><td style="font-family:var(--f-body);text-align:left">${esc(r.party)}</td><td style="font-family:var(--f-body);text-align:left">${esc(r.prj)}</td><td style="font-family:var(--f-body);text-align:left">${esc(r.note)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    <p class="${errors.length ? 'form-err' : 'muted'}" style="margin:8px 0 0">${rows.length ? `Готово к загрузке: ${rows.length}${rows.length > 50 ? ' (в таблице первые 50)' : ''}.` : 'Строк с операциями не найдено.'}${errors.length ? ' Пропущено: ' + errors.length + '. ' + esc(errors.slice(0, 3).join('; ')) : ''}</p>`;
+  $('#imp-go').disabled = !rows.length || !S.canWrite; $('#imp-go').textContent = rows.length ? `Загрузить ${rows.length}` : 'Загрузить';
+}
+async function impRun() {
+  if (!IMP || !IMP.rows.length) return;
+  const btn = $('#imp-go'); btn.disabled = true; modalRoot.querySelectorAll('.m-actions .btn').forEach(b => b.disabled = true);
+  const ensure = async (type, name, extra) => { if (!name) return ''; let id = findByName(S[type], name); if (id) return id; id = type[0] + newId(); if (!await put(type, id, {name, ...extra})) throw 0; S[type][id] = {name, ...extra}; return id; };
+  try {
+    const fallback = activeSorted(S.acc)[0] ? activeSorted(S.acc)[0][0] : await ensure('acc', 'Основной счёт', {type: 'bank', opening: 0, order: 0});
+    let n = 0;
+    for (const r of IMP.rows) {
+      const doc = {date: r.date, kind: r.kind, amount: r.amount, account: (await ensure('acc', r.acc, {type: 'bank', opening: 0, order: Object.keys(S.acc).length})) || fallback, status: r.date > TODAY ? 'plan' : 'fact', created: Date.now() + n};
+      const c = await ensure('cat', r.cat, {kind: r.kind, flow: 'op', pnl: true}); if (c) doc.category = c;
+      const p = await ensure('pty', r.party, {}); if (p) doc.party = p;
+      const j = await ensure('prj', r.prj, {}); if (j) doc.project = j;
+      if (r.note) doc.note = r.note;
+      if (!await put('ops', 'o' + newId(), doc)) throw 0;
+      btn.textContent = `Загружено ${++n} из ${IMP.rows.length}`;
+    }
+    closeModal(); toast(`Загружено операций: ${n}`);
+  } catch { btn.textContent = 'Загрузка прервана'; modalRoot.querySelectorAll('.m-actions .btn').forEach(b => b.disabled = false); }
+}
+async function doExport() {
+  const q = s => { s = String(s ?? ''); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = ['Дата;Тип;Статус;Сумма;Счёт;На счёт;Статья;Контрагент;Проект;Месяц начисления;Назначение'];
+  for (const o of filteredOps().reverse()) lines.push([o.date.split('-').reverse().join('.'), KINDS[o.kind], o.status === 'plan' ? 'план' : 'факт', String(o.kind === 'out' ? -o.amount : o.amount).replace('.', ','), accName(o.account), o.to ? accName(o.to) : '', o.kind === 'move' ? '' : catName(o.category), S.pty[o.party] ? S.pty[o.party].name : '', S.prj[o.project] ? S.prj[o.project].name : '', o.accrual || '', o.note || ''].map(q).join(';'));
+  try { await S.dl.save({filename: `kazna-operacii-${UI.opsAll ? 'vse' : UI.opsMonth}.csv`, data: '﻿' + lines.join('\r\n')}); }
+  catch (e) { if (e && e.code !== 'declined') toast('Не удалось сохранить файл: ' + (e.code || 'ошибка')); }
+}
+
+/* ---------- прочие действия ---------- */
+async function starter() {
+  const b = main.querySelector('[data-act="starter"]'); if (b) { b.disabled = true; b.textContent = 'Создаю…'; }
+  let ok = await put('acc', 'a-bank', {name: 'Расчётный счёт', type: 'bank', opening: 0, order: 0}) && await put('acc', 'a-cash', {name: 'Касса', type: 'cash', opening: 0, order: 1});
+  for (const [id, name, kind, flow, p] of STARTER) { if (!ok) break; ok = await put('cat', id, {name, kind, flow, pnl: p}); }
+  if (ok) toast('Счета и статьи созданы');
+}
+async function clearDemo() {
+  const z = $('#demo-zone'); if (z) z.innerHTML = '<span>Удаляю…</span>';
+  const real = new Set(); for (const o of S.list) if (!o.demo) [o.account, o.to, o.category, o.project, o.party].forEach(x => x && real.add(x));
+  for (const k of ['ops', 'prj', 'pty', 'acc', 'cat']) for (const [id, d] of Object.entries(S[k])) if (d.demo && (k === 'ops' || !real.has(id))) if (!await del(k, id)) return;
+  toast('Примеры удалены');
+}
+let toastT = 0;
+function toast(t) { const r = $('#toast-root'); r.innerHTML = `<div class="toast" role="status">${esc(t)}</div>`; clearTimeout(toastT); toastT = setTimeout(() => r.innerHTML = '', 3200); }
+
+const ACT = {
+  'nav': t => { UI.view = t.dataset.view; saveUI(); render(); window.scrollTo(0, 0); },
+  'new-op': t => openOp(null, {kind: t.dataset.kind, date: t.dataset.date, status: t.dataset.status}),
+  'edit-op': t => openOp(t.dataset.id),
+  'run-plan': async t => { t.disabled = true; if (await patch('ops', t.dataset.id, {status: 'fact', date: TODAY})) toast('Платёж проведён сегодняшней датой'); },
+  'set': t => { UI[t.dataset.k] = t.dataset.v; saveUI(); render(); },
+  'ops-month': t => { UI.opsMonth = addMonths(UI.opsMonth, +t.dataset.dir); saveUI(); render(); },
+  'cal-month': t => { UI.calMonth = addMonths(UI.calMonth, +t.dataset.dir); UI.calDay = UI.calMonth === THIS_YM ? TODAY : UI.calMonth + '-01'; saveUI(); render(); },
+  'cal-day': t => { UI.calDay = t.dataset.date; saveUI(); render(); },
+  'goto-cal': t => { UI.view = 'cal'; UI.calDay = t.dataset.date; UI.calMonth = t.dataset.date.slice(0, 7); saveUI(); render(); },
+  'rep-year': t => { UI.repYear += +t.dataset.dir; saveUI(); render(); },
+  'dict-edit': t => openDict(t.dataset.type, t.dataset.id),
+  'dict-arch': async () => { const f = modalRoot.querySelector('form'); const {type, id} = f.dataset; if (await patch(type, id, {archived: !S[type][id].archived})) { closeModal(); toast(S[type][id].archived ? 'Возвращено из архива' : 'Отправлено в архив'); } },
+  'del-ask': () => { $('#del-zone').innerHTML = `<span class="confirm">Удалить без возможности восстановления? <button type="button" class="btn danger small" data-act="del-yes">Удалить</button><button type="button" class="btn small" data-act="del-no">Нет</button></span>`; },
+  'del-no': () => { const f = modalRoot.querySelector('form'); f.dataset.form === 'op' ? openOp(f.dataset.id) : openDict(f.dataset.type, f.dataset.id); },
+  'del-yes': async () => { const f = modalRoot.querySelector('form'); const k = f.dataset.form === 'op' ? 'ops' : f.dataset.type; if (await del(k, f.dataset.id)) { closeModal(); toast('Удалено'); } },
+  'close-modal': closeModal,
+  'import': openImport,
+  'imp-parse': impPreview,
+  'imp-go': impRun,
+  'export': doExport,
+  'starter': starter,
+  'demo-ask': () => { $('#demo-zone').innerHTML = `<span class="confirm">Удалить все демо-операции, проекты и контрагентов? <button class="btn small danger" data-act="demo-yes">Удалить</button><button class="btn small" data-act="demo-no">Нет</button></span>`; },
+  'demo-no': () => render(),
+  'demo-yes': clearDemo,
+};
+document.addEventListener('click', e => {
+  if (e.target.matches('[data-scrim]')) { closeModal(); return; }
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const fn = ACT[t.dataset.act]; if (fn) { e.preventDefault(); fn(t, e); }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset && t.dataset.f) { UI[t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; saveUI(); schedule(); return; }
+  if (t.name === 'k' || t.name === 'st') syncOpForm();
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.name === 'k' || t.name === 'st') syncOpForm();
+  if (t.id === 'imp-file' && t.files[0]) { const r = new FileReader(); r.onload = () => { $('#imp-text').value = r.result; impPreview(); }; r.readAsText(t.files[0], 'utf-8'); }
+});
+document.addEventListener('submit', e => { e.preventDefault(); const f = e.target; if (f.dataset.form === 'op') saveOp(f); if (f.dataset.form === 'dict') saveDict(f); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && modalRoot.firstChild) closeModal(); });
+let rz = 0; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (UI.view === 'dash') drawChart(); }, 120); });
+
+/* ---------- локальный сервер (server.js): тот же интерфейс, что у базы claude.ai ---------- */
+async function serverDB() {
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return null;
+  let state = null, ver = -1; const subs = {};
+  const snap = col => { const docs = Object.entries((state && state[col]) || {}).map(([id, d]) => ({id, exists: true, data: () => d})); return {docs, size: docs.length, empty: !docs.length}; };
+  const emit = () => { for (const col in subs) for (const cb of subs[col]) cb(snap(col)); };
+  const take = j => { state = j.data; ver = j.version; emit(); };
+  const pull = async () => { const r = await fetch('/api/db?v=' + ver, {cache: 'no-store'}); if (r.status === 204) return; if (!r.ok) throw new Error(r.status); take(await r.json()); };
+  try { await pull(); } catch { return null; }
+  setInterval(() => { if (!document.hidden) pull().catch(() => {}); }, 3000);
+  const req = async (method, col, id, body) => {
+    let r; try { r = await fetch(`/api/db/${col}/${encodeURIComponent(id)}`, {method, headers: {'content-type': 'application/json'}, body: body ? JSON.stringify(body) : undefined}); } catch { throw {code: 'unavailable'}; }
+    if (!r.ok) throw {code: r.status === 400 ? 'invalid_argument' : 'unavailable'};
+    take(await r.json());
+  };
+  return {collection: col => ({
+    onSnapshot(cb) { (subs[col] || (subs[col] = new Set())).add(cb); cb(snap(col)); return () => subs[col].delete(cb); },
+    doc: id => ({set: d => req('PUT', col, id, d), update: d => req('PATCH', col, id, d), delete: () => req('DELETE', col, id)})
+  })};
+}
+const fileSaver = {save: async ({filename, data}) => {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], {type: 'text/csv;charset=utf-8'})); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); return {status: 'saved'};
+}};
+
+/* ---------- запуск ---------- */
+async function boot() {
+  render();
+  let db = null;
+  try { db = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch {}
+  if (!db) { db = await serverDB(); if (db) { S.mode = 'server'; S.dl = fileSaver; } }
+  if (!db) { S.status = 'nodb'; render(); return; }
+  S.db = db;
+  if (S.mode !== 'server') {
+    try { const user = await window.claude.use('user'); if (user && (await user.can('data.write')) === false) S.canWrite = false; } catch {}
+    try { S.dl = await window.claude.use('downloads'); } catch {}
+  }
+  for (const [k, col] of Object.entries(COLS)) {
+    db.collection(col).onSnapshot(snap => {
+      const m = {}; for (const d of snap.docs) m[d.id] = d.data(); S[k] = m;
+      if (k === 'ops') S.list = Object.entries(m).map(([id, o]) => ({id, ...o})).filter(o => o.date && o.amount > 0);
+      S.loaded.add(k); if (S.loaded.size === 5 && S.status === 'connecting') S.status = 'ready';
+      if (S.status === 'ready') schedule();
+    }, e => { S.status = 'error'; S.err = e && e.code || 'unknown'; schedule(); });
+  }
+}
+boot();
+})();
+</script>
